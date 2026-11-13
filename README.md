@@ -3,7 +3,8 @@
 <h1 align="center">Deadlock &amp; Overwatch Server Selector</h1>
 
 <p align="center">
-  <b>svtoggle</b> picks which game server regions you can be matched on, for <b>Deadlock</b> and <b>Overwatch</b> on Windows.<br>
+  Your ping deserves better than a server three countries away.<br>
+  <b>svtoggle</b> picks which server regions you can be matched on, for <b>Deadlock</b> and <b>Overwatch</b> on Windows.<br>
   World map, per-city toggles, ping per region, presets. Firewall rules only: no injection, game files untouched.
 </p>
 
@@ -13,12 +14,12 @@
   <a href="#faq">FAQ</a>
 </p>
 
-> **Beta.** svtoggle blocks *known* server endpoints. It can't guarantee which region you land in or how the game fails over, and Deadlock blocking and match detection are experimental.
+> **Beta, honestly.** svtoggle blocks the server addresses it *knows about*. It can't force the game to pick a region, and Deadlock blocking and match detection are still experimental. Better you read it here than find out mid-queue.
 
 ![svtoggle Deadlock tab: world map of Valve server cities with ping and region switches](docs/screenshot-deadlock.png)
 
 Looking for a **Deadlock region changer** (the old `citadel_region_override` console command no longer exists),
-an **Overwatch server selector**, or a way to **block Middle East / Asia / NA servers**? That's what this is.
+an **Overwatch server selector**, or a way to **block Middle East / Asia / NA servers**? You found it. Hi.
 
 ## Install
 **Recommended:** download `svtoggle-<version>-windows.zip` from the latest release, unzip it, and run
@@ -39,7 +40,8 @@ Overwatch is detected from Battle.net or Steam installs; if the game isn't found
 - **Allow everything** turns off every svtoggle rule for both games.
 - **Refresh lists** downloads the newest server lists and re-applies whatever you have blocked.
 - While a game is running, the right panel tries to detect which region your match is on (experimental).
-- Closing the window keeps it in the tray. Right-click the tray icon to quit.
+- Blocking in the middle of a match asks first. A dropped comp game is a leaver penalty, and the fish refuses to be blamed for that.
+- Closing the window keeps it in the tray. Right-click the tray icon to quit (your blocks stay on, it'll remind you).
 
 ## How it works
 - One outbound Block rule per region (`svtoggle <game> <region>`, group `svtoggle`), **scoped to the game's exe**, so other apps never lose those cloud ranges.
@@ -75,10 +77,15 @@ svtoggle monitor          # what match detection sees, once a second
 
 **Can this get me banned?** It never touches the game; it only adds Windows Firewall rules, like a router geo-filter. Use at your own risk, and don't switch regions mid competitive match: dropping out can count as leaving.
 
-**Stuck on "connecting"?** You've probably blocked everything it wanted. Click *Allow everything*, then block fewer regions.
+**Stuck on "connecting"?** You probably blocked everywhere it wanted to go. Click *Allow everything*, then block a little less greedily.
 
-## Not verified yet
+**Linux or Mac?** Windows 10/11 only. It's built on Windows Firewall, so the penguin and the apple are out of luck.
+
+## Not verified yet (help wanted)
 - Deadlock: whether the game fails over to another relay or refuses to connect when a city is blocked.
 - Match detection during a real match, and the 20 pkt/s threshold.
 
+Tried one of these? [Open an issue](https://github.com/FishyShu/deadlock-overwatch-server-selector/issues) and tell us what happened, good or cursed.
+
 License: MIT. Fonts, map data and IP-list sources: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Valve or Blizzard.
+Built by FishyShu, fueled by questionable amounts of energy drinks.
