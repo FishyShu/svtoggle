@@ -10,7 +10,7 @@ pub const HOVER: Color32 = Color32::from_rgb(33, 39, 47);
 pub const STROKE: Color32 = Color32::from_rgb(38, 45, 54);
 pub const TEXT: Color32 = Color32::from_rgb(217, 222, 228);
 pub const DIM: Color32 = Color32::from_rgb(139, 149, 161);
-pub const FAINT: Color32 = Color32::from_rgb(92, 102, 114);
+pub const FAINT: Color32 = Color32::from_rgb(126, 136, 148); // ~5:1 on BG/PANEL: readable small print, still quieter than DIM
 pub const ACCENT: Color32 = Color32::from_rgb(232, 163, 61); // amber: live / connected, nothing else
 pub const OK: Color32 = Color32::from_rgb(108, 191, 132);
 pub const BAD: Color32 = Color32::from_rgb(217, 100, 89);
@@ -100,10 +100,15 @@ pub fn install(ctx: &egui::Context) {
 
 /// Animated on/off switch. `on` = traffic allowed (green), off = blocked (red). Returns true when clicked.
 /// `mixed` draws a half-way knob for a group where only some cities are blocked.
-pub fn switch(ui: &mut egui::Ui, on: bool, mixed: bool, enabled: bool) -> egui::Response {
+/// `label` names it for screen readers (accesskit) and it's keyboard-focusable (Tab, then Space/Enter).
+pub fn switch(ui: &mut egui::Ui, label: &str, on: bool, mixed: bool, enabled: bool) -> egui::Response {
     let size = Vec2::new(34.0, 18.0);
     let sense = if enabled { egui::Sense::click() } else { egui::Sense::hover() };
     let (rect, resp) = ui.allocate_exact_size(size, sense);
+    resp.widget_info(|| egui::WidgetInfo::selected(egui::Role::CheckBox, enabled, on && !mixed, format!("{label}: allowed")));
+    if resp.has_focus() {
+        ui.painter().rect_stroke(rect.expand(3.0), CornerRadius::same(11), Stroke::new(1.5, TEXT), egui::StrokeKind::Outside);
+    }
     let t = ui.ctx().animate_bool_with_time(resp.id, on, 0.14);
     let t = if mixed { 0.5 } else { t };
     if ui.is_rect_visible(rect) {

@@ -18,9 +18,9 @@ svtoggle is not affiliated with or endorsed by Valve.
 - The Middle East list is hand-verified against AWS and GCP's published IP ranges.
 - Other regions are seeded in `profiles/overwatch.toml` (snapshot of 2026-11-13) and refreshed at runtime from [Qiiks/ow2-server-list](https://github.com/Qiiks/ow2-server-list)
   (`ow2-servers.json`, pinned reference: commit `dbfd477ff00ad68b709b2be7df18550ad8ef243d` of `main`, checked 2026-11-13).
-  That repository declares no license (GitHub reports none). Its README says the data is pulled from
-  [foryVERX/Overwatch-Server-Selector](https://github.com/foryVERX/Overwatch-Server-Selector), which also declares no license.
-  No license declared upstream; the ranges are factual network data (IP CIDRs); we'll remove them on request.
+  Its README states **MIT** ("## License: MIT", no separate LICENSE file). It says its data derives from
+  [foryVERX/Overwatch-Server-Selector](https://github.com/foryVERX/Overwatch-Server-Selector) plus community contributions;
+  that repository declares no license. The ranges are factual network data (IP CIDRs); we'll remove them on request.
 - svtoggle is not affiliated with Blizzard.
 
 ## Rust crates

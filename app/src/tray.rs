@@ -35,7 +35,7 @@ impl Tray {
             &MenuItem::with_id(ID_ALL, "Allow everything", true, None),
             &submenu,
             &PredefinedMenuItem::separator(),
-            &MenuItem::with_id(ID_QUIT, "Quit", true, None),
+            &MenuItem::with_id(ID_QUIT, "Quit (blocks stay on)", true, None),
         ])
         .map_err(|e| e.to_string())?;
         fill(&submenu, presets);

@@ -159,8 +159,23 @@ impl MapView {
                 painter.circle_stroke(p, 7.0, Stroke::new(1.5, ACCENT));
             }
             let r = if hovered == Some(i) { 6.0 } else { 4.0 };
-            painter.circle_filled(p, r, color);
-            painter.circle_stroke(p, r, Stroke::new(1.0, WATER));
+            // shape carries the state too, not just red vs green (colour-blind safe)
+            match m.state {
+                MarkerState::Allowed => {
+                    painter.circle_filled(p, r, color);
+                    painter.circle_stroke(p, r, Stroke::new(1.0, WATER));
+                }
+                MarkerState::Blocked => {
+                    let k = r * 0.95;
+                    painter.circle_filled(p, r + 1.5, WATER.gamma_multiply(0.85)); // knock-out so the x reads on land
+                    for (a, b) in [(Vec2::new(-k, -k), Vec2::new(k, k)), (Vec2::new(-k, k), Vec2::new(k, -k))] {
+                        painter.line_segment([p + a, p + b], Stroke::new(2.0, color));
+                    }
+                }
+                MarkerState::Unknown => {
+                    painter.circle_stroke(p, r - 0.5, Stroke::new(1.5, color));
+                }
+            }
         }
 
         // Labels: hovered first so it always wins, then greedily skip anything overlapping.

@@ -5,3 +5,4 @@ pub mod tray;
 pub mod single;
 pub mod icon;
 pub mod theme;
+pub mod pick;

@@ -51,8 +51,16 @@ struct App {
     monitor: Monitor,
     tray: Option<Tray>,
     logo: egui::TextureHandle,
+    pending: Option<Pending>, // a block waiting for "you're in a match, sure?"
+    about: bool,
     tx: Sender<Msg>,
     rx: Receiver<Msg>,
+}
+
+/// Blocking actions held back while a match is detected (dropping out can count as leaving).
+enum Pending {
+    Regions(usize, Vec<String>),
+    Preset(String),
 }
 
 fn targets(profs: &[Profile]) -> Vec<Target> {
@@ -87,9 +95,57 @@ impl App {
             .and_then(|s| s.trim().parse::<usize>().ok())
             .filter(|t| *t < profs.len())
             .unwrap_or(0);
-        App { profs, exes, tab, toast: None, blocked: HashMap::new(), pings: HashMap::new(),
+        let mut app = App { profs, exes, tab, toast: None, blocked: HashMap::new(), pings: HashMap::new(),
               last_status: None, last_ping: None, refreshing: false, pings_out: 0, presets, naming: None,
-              expanded: HashSet::new(), map: MapView::default(), monitor, tray, logo, tx, rx }
+              expanded: HashSet::new(), map: MapView::default(), monitor, tray, logo, pending: None, about: false, tx, rx };
+        app.startup_checks();
+        app
+    }
+
+    /// Existing rules may predate a list refresh or a protect.txt edit: bring them in line now,
+    /// and say so if protect.txt has lines we couldn't read (silently ignoring them would be worse).
+    fn startup_checks(&mut self) {
+        let mut problems: Vec<String> = match Fw::open() {
+            Ok(fw) => self.profs.iter().flat_map(|p| toggle::reconcile(&fw, None, p)).collect(),
+            Err(e) => vec![e.to_string()],
+        };
+        let bad = refresh::protect_problems();
+        if !bad.is_empty() {
+            problems.push(format!("protect.txt: {}", bad.join("; ")));
+        }
+        if !problems.is_empty() {
+            self.say(problems.join("; "), true);
+        }
+    }
+
+    /// Route blocking actions through the in-match check.
+    fn request_regions(&mut self, tab: usize, ids: Vec<String>, block: bool) {
+        if block && self.monitor.current().is_some() {
+            self.pending = Some(Pending::Regions(tab, ids));
+        } else {
+            self.set_regions(tab, ids, block);
+        }
+    }
+
+    fn request_preset(&mut self, label: &str) {
+        let blocks = self.presets.iter().find(|p| preset_label(p) == label).is_some_and(|p| !p.blocked.is_empty());
+        if blocks && self.monitor.current().is_some() {
+            self.pending = Some(Pending::Preset(label.to_string()));
+        } else {
+            self.apply_preset(label);
+        }
+    }
+
+    fn locate_game(&mut self) {
+        let game = self.profs[self.tab].game.clone();
+        let Some(path) = svtoggle::pick::exe(&format!("Locate {}", nice_game(&game))) else { return };
+        match games::set_override(&game, &path) {
+            Ok(()) => {
+                self.exes[self.tab] = games::exe(&game).map(|e| e.display().to_string());
+                self.say(format!("Using {}", path.display()), false);
+            }
+            Err(e) => self.say(e, true),
+        }
     }
 
     fn say(&mut self, text: impl Into<String>, err: bool) {
@@ -191,28 +247,18 @@ impl App {
         self.refreshing = false;
         match res {
             Ok((p, summary)) => {
-                self.refresh_status(); // decide from the firewall, not the 5 s-old cache
-                let game = p.game.clone();
-                // a region that vanished from the new list would keep an invisible rule: turn it off
-                let gone: Vec<String> = self.profs[i].regions.iter()
-                    .filter(|r| p.region(&r.id).is_none())
-                    .map(|r| svtoggle_core::firewall::rule_name(&game, &r.id)).collect();
-                if let (false, Ok(fw)) = (gone.is_empty(), Fw::open()) {
-                    for name in &gone {
-                        let _ = fw.allow(name);
-                    }
-                }
-                self.profs[i] = p;
+                let old = std::mem::replace(&mut self.profs[i], p);
+                // same reconcile as startup and the CLI: new lists into live rules, vanished regions off
+                let errs = match Fw::open() {
+                    Ok(fw) => toggle::reconcile(&fw, Some(&old), &self.profs[i]),
+                    Err(e) => vec![e.to_string()],
+                };
                 self.monitor.set_targets(targets(&self.profs));
-                self.say(summary, false); // first, so a re-block error below replaces it instead of the other way round
-                // blocked rules still hold the old list: re-block them so they pick up the new ranges
-                let ids: Vec<String> = self.profs[i].regions.iter().filter(|r| self.is_blocked(&game, &r.id)).map(|r| r.id.clone()).collect();
-                if !ids.is_empty() {
-                    let summary = self.toast.as_ref().map(|t| t.text.clone()).unwrap_or_default();
-                    self.set_regions(i, ids, true);
-                    if !self.toast.as_ref().is_some_and(|t| t.err) {
-                        self.say(summary, false);
-                    }
+                self.refresh_status();
+                if errs.is_empty() {
+                    self.say(summary, false);
+                } else {
+                    self.say(format!("{summary}, but re-applying rules failed: {}", errs.join("; ")), true);
                 }
                 self.last_ping = None;
             }
@@ -260,6 +306,9 @@ impl App {
                 if ui.add(allow).on_hover_text("Turn off every svtoggle rule for both games").clicked() {
                     self.allow_everything();
                 }
+                if th::ghost(ui, RichText::new("About").color(th::DIM)).clicked() {
+                    self.about = true;
+                }
                 if self.refreshing {
                     ui.add(egui::Spinner::new().size(14.0).color(th::DIM));
                     ui.label(RichText::new("Refreshing").color(th::DIM));
@@ -288,19 +337,82 @@ impl App {
                     }
                 }
             }
+            let mut locate = false;
             ui.with_layout(Layout::right_to_left(Align::Center), |ui| {
-                let note = match &self.exes[self.tab] {
+                let found = self.exes[self.tab].is_some();
+                let btn = RichText::new(if found { "Change game path" } else { "Locate game\u{2026}" }).small();
+                locate = th::ghost(ui, if found { btn.color(th::FAINT) } else { btn.color(th::TEXT) })
+                    .on_hover_text("Pick the game's exe yourself (e.g. a custom or Steam install)")
+                    .clicked();
+                let (note, c) = match &self.exes[self.tab] {
                     Some(e) => {
                         let exe = e.rsplit('\\').next().unwrap_or(e);
-                        let ping = if self.profs[self.tab].game == "overwatch" { "ping: nearest AWS region" } else { "ping: Valve relay" };
-                        format!("rules apply to {exe} only  \u{b7}  {ping}")
+                        let ping = if self.profs[self.tab].game == "overwatch" { "ping: estimated, nearest AWS region" } else { "ping: Valve relay" };
+                        (format!("rules apply to {exe} only  \u{b7}  {ping}"), th::FAINT)
                     }
-                    None => "game not found: blocking disabled".into(),
+                    None => ("game not found: blocking disabled".into(), th::BAD),
                 };
                 let full = self.exes[self.tab].clone().unwrap_or_default();
-                ui.label(RichText::new(note).small().color(th::FAINT)).on_hover_text(full);
+                ui.label(RichText::new(note).small().color(c)).on_hover_text(full);
+            });
+            if locate {
+                self.locate_game();
+            }
+        });
+    }
+
+    /// "You're in a match" gate for anything that blocks.
+    fn confirm_modal(&mut self, ctx: &egui::Context) {
+        if self.pending.is_none() {
+            return;
+        }
+        let mut choice = None;
+        egui::Modal::new(egui::Id::unique("in-match-confirm")).show(ctx, |ui| {
+            ui.set_width(360.0);
+            ui.heading("You're in a match");
+            ui.add_space(4.0);
+            ui.label(RichText::new("Blocking now can drop you from this game, and leaving a competitive match can get you a penalty. Do it between matches unless you're sure.").color(th::DIM));
+            ui.add_space(10.0);
+            ui.horizontal(|ui| {
+                if ui.button("Wait").clicked() {
+                    choice = Some(false);
+                }
+                if ui.add(egui::Button::new(RichText::new("Block anyway").color(th::BAD))).clicked() {
+                    choice = Some(true);
+                }
             });
         });
+        match (choice, self.pending.take()) {
+            (Some(true), Some(Pending::Regions(tab, ids))) => self.set_regions(tab, ids, true),
+            (Some(true), Some(Pending::Preset(label))) => self.apply_preset(&label),
+            (Some(false), _) => self.say("Nothing changed", false),
+            (None, keep) => self.pending = keep, // still open
+            (Some(true), None) => {}
+        }
+    }
+
+    fn about_window(&mut self, ctx: &egui::Context) {
+        let mut open = true;
+        egui::Window::new("About svtoggle").open(&mut open).collapsible(false).resizable(true)
+            .default_size([520.0, 420.0]).show(ctx, |ui| {
+                ui.horizontal(|ui| {
+                    ui.add(egui::Image::new(&self.logo).fit_to_exact_size(Vec2::splat(40.0)));
+                    ui.vertical(|ui| {
+                        ui.label(RichText::new(format!("svtoggle {VERSION}")).font(FontId::new(16.0, semibold())));
+                        ui.label(RichText::new("Deadlock & Overwatch server selector \u{b7} MIT license").color(th::DIM));
+                    });
+                });
+                ui.hyperlink_to("github.com/FishyShu/deadlock-overwatch-server-selector", "https://github.com/FishyShu/deadlock-overwatch-server-selector");
+                ui.label(RichText::new(format!("Settings & cache: {}", refresh::data_dir().display())).small().color(th::FAINT));
+                ui.separator();
+                ui.label(RichText::new("Third-party notices").strong());
+                egui::ScrollArea::vertical().max_height(260.0).show(ui, |ui| {
+                    ui.label(RichText::new(include_str!("../../../THIRD-PARTY-NOTICES.md")).small().color(th::DIM));
+                    ui.add_space(8.0);
+                    ui.label(RichText::new(include_str!("../../assets/fonts/OFL.txt")).small().monospace().color(th::FAINT));
+                });
+            });
+        self.about = open;
     }
 
     fn live_card(&self, ui: &mut egui::Ui) {
@@ -356,7 +468,8 @@ impl App {
             Some(("blocked".to_string(), th::BAD.gamma_multiply(0.85)))
         } else {
             match (r.ping.is_some(), self.pings.get(&(p.game.clone(), r.id.clone()))) {
-                (true, Some(Some(ms))) => Some((format!("{ms} ms"), th::ping_color(*ms))),
+                // ~ = estimate: Overwatch pings hit the nearest AWS region, not the game server
+                (true, Some(Some(ms))) => Some((format!("{}{ms} ms", if p.game == "overwatch" { "~" } else { "" }), th::ping_color(*ms))),
                 (true, Some(None)) => Some(("timeout".into(), th::FAINT)),
                 (true, None) => Some(("\u{2026}".into(), th::FAINT)),
                 (false, _) => Some(("\u{2014}".into(), th::FAINT)),
@@ -368,7 +481,7 @@ impl App {
         let sw = egui::Rect::from_center_size(egui::pos2(rect.right() - 27.0, rect.center().y), Vec2::new(34.0, 18.0));
         let enabled = !r.cidrs.is_empty() && (can_block || blocked);
         let tip = if r.cidrs.is_empty() { "Valve publishes no relay IPs here" } else if blocked { "Blocked: click to allow" } else { "Allowed: click to block" };
-        let clicked = ui.put(sw, |ui: &mut egui::Ui| th::switch(ui, !blocked, false, enabled)).on_hover_text(tip).clicked();
+        let clicked = ui.put(sw, |ui: &mut egui::Ui| th::switch(ui, &r.name, !blocked, false, enabled)).on_hover_text(tip).clicked();
         clicked.then_some(!blocked)
     }
 
@@ -415,7 +528,7 @@ impl App {
                 let mixed = nb > 0 && nb < ids.len();
                 let all_blocked = !ids.is_empty() && nb == ids.len();
                 let enabled = !ids.is_empty() && (can_block || nb > 0);
-                let sr = ui.put(sw, |ui: &mut egui::Ui| th::switch(ui, !all_blocked, mixed, enabled))
+                let sr = ui.put(sw, |ui: &mut egui::Ui| th::switch(ui, g, !all_blocked, mixed, enabled))
                     .on_hover_text(if nb > 0 { "Allow every city here" } else { "Block every city here" });
                 if sr.clicked() {
                     out = Some((ids.clone(), nb == 0));
@@ -450,7 +563,7 @@ impl App {
                     .on_hover_cursor(egui::CursorIcon::PointingHand)
                     .on_hover_text(format!("{tip}\nright-click to delete"));
                 if r.clicked() {
-                    self.apply_preset(&preset_label(pr));
+                    self.request_preset(&preset_label(pr));
                 }
                 r.context_menu(|ui| {
                     if ui.button("Delete preset").clicked() {
@@ -498,14 +611,16 @@ impl App {
             .collect();
         best.sort_by_key(|b| b.1);
         ui.horizontal(|ui| {
-            ui.label(RichText::new("FASTEST NOW").small().color(th::FAINT));
+            let est = p.game == "overwatch";
+            ui.label(RichText::new(if est { "FASTEST NOW (EST.)" } else { "FASTEST NOW" }).small().color(th::FAINT))
+                .on_hover_text(if est { "Estimated from the nearest AWS region, not the game server" } else { "ICMP to each city's Valve relay" });
             ui.add_space(4.0);
             if best.is_empty() {
                 ui.label(RichText::new("measuring\u{2026}").small().color(th::FAINT));
             }
             for (name, ms) in best.into_iter().take(3) {
                 ui.label(RichText::new(name).color(th::DIM));
-                ui.label(RichText::new(format!("{ms} ms")).monospace().color(th::ping_color(ms)));
+                ui.label(RichText::new(format!("{}{ms} ms", if est { "~" } else { "" })).monospace().color(th::ping_color(ms)));
                 ui.add_space(10.0);
             }
         });
@@ -606,7 +721,7 @@ impl eframe::App for App {
             match cmd {
                 TrayCmd::Show => {}
                 TrayCmd::AllowAll => self.allow_everything(),
-                TrayCmd::Preset(label) => self.apply_preset(&label),
+                TrayCmd::Preset(label) => self.request_preset(&label),
                 TrayCmd::Quit => std::process::exit(0), // tray thread exits first; kept for completeness
             }
         }
@@ -657,7 +772,11 @@ impl eframe::App for App {
             });
         });
         if let Some((ids, block)) = action {
-            self.set_regions(self.tab, ids, block);
+            self.request_regions(self.tab, ids, block);
+        }
+        self.confirm_modal(&ctx);
+        if self.about {
+            self.about_window(&ctx);
         }
     }
 }
@@ -672,7 +791,7 @@ fn main() -> eframe::Result {
         viewport: egui::ViewportBuilder::default()
             .with_title("svtoggle")
             .with_icon(icon)
-            .with_inner_size([1180.0, 600.0])
+            .with_inner_size([1180.0, 560.0])
             .with_min_inner_size([920.0, 520.0]),
         ..Default::default()
     };
