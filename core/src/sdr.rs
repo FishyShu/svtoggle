@@ -75,9 +75,36 @@ pub fn profile(json: &str) -> Result<Profile, String> {
     Ok(p)
 }
 
+const MIN_POPS: usize = 15;
+
+/// `profile` plus a plausibility check for a fresh download: a truncated answer must not replace the cache.
+pub fn profile_checked(json: &str) -> Result<Profile, String> {
+    let p = profile(json)?;
+    let n = p.regions.iter().filter(|r| !r.cidrs.is_empty()).count();
+    if n < MIN_POPS {
+        return Err(format!("Valve's SDR config lists only {n} POPs with relays (expected {MIN_POPS}+), keeping the old list"));
+    }
+    Ok(p)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    fn cfg(pops_with_relays: usize) -> String {
+        let pops: Vec<String> = (0..pops_with_relays)
+            .map(|i| format!(r#""p{i}":{{"desc":"P{i}","relays":[{{"ipv4":"10.0.{i}.1"}}]}}"#))
+            .chain([r#""empty":{"desc":"E"}"#.to_string()])
+            .collect();
+        format!(r#"{{"revision":1,"pops":{{{}}}}}"#, pops.join(","))
+    }
+
+    #[test]
+    fn checked_rejects_too_few_pops() {
+        assert!(profile_checked(&cfg(14)).unwrap_err().contains("only 14"));
+        assert_eq!(profile_checked(&cfg(15)).unwrap().regions.len(), 16);
+        assert!(profile_checked(crate::profile::DEADLOCK_SDR).is_ok());
+    }
 
     #[test]
     fn shipped_snapshot_parses_per_pop() {
