@@ -61,6 +61,21 @@ pub fn user_protect() -> Vec<String> {
         .unwrap_or_default()
 }
 
+/// Malformed lines of protect.txt (they're skipped by `apply_protect`, so the user should hear about them).
+pub fn protect_problems() -> Vec<String> {
+    cache("protect.txt").map(|s| problems(&s)).unwrap_or_default()
+}
+
+fn problems(src: &str) -> Vec<String> {
+    src.lines()
+        .enumerate()
+        .filter_map(|(i, l)| {
+            let l = l.split('#').next().unwrap_or("").trim();
+            (!l.is_empty() && Cidr::parse(l).is_err()).then(|| format!("line {}: '{l}' is not a CIDR", i + 1))
+        })
+        .collect()
+}
+
 /// Add `extra` to the profile's guard and strip every region range that touches it. Bad lines are
 /// skipped rather than failing the load; the block-time guard still refuses anything overlapping.
 pub fn apply_protect(p: &mut Profile, extra: &[String]) -> usize {
@@ -107,7 +122,7 @@ pub fn refresh(game: &str, current: &Profile) -> Result<(Profile, String), Strin
     match game {
         "deadlock" => {
             let body = get(sdr::URL)?;
-            let mut p = sdr::profile(&body)?;
+            let mut p = sdr::profile_checked(&body)?;
             apply_protect(&mut p, &user_protect());
             save("deadlock-sdr.json", &body)?;
             let rev = sdr::revision(&body).unwrap_or(0);
@@ -124,14 +139,26 @@ pub fn refresh(game: &str, current: &Profile) -> Result<(Profile, String), Strin
     }
 }
 
+const MIN_OW_REGIONS: usize = 8;
+
 /// Replace each mapped region's CIDRs with Qiiks' list, minus anything touching `protect`.
+/// Errs on implausible data (too few regions, a region with an empty list) so a broken upstream
+/// can't wipe the cache.
 fn merge_qiiks(current: &Profile, body: &str) -> Result<(Profile, usize), String> {
     let v: serde_json::Value = serde_json::from_str(body).map_err(|e| e.to_string())?;
+    let present = OW_MAP.iter().filter(|(k, _)| v["regions"][k]["cidrs"].as_array().is_some_and(|a| !a.is_empty())).count();
+    if present < MIN_OW_REGIONS {
+        return Err(format!("Qiiks list has only {present} of {} regions (expected {MIN_OW_REGIONS}+), keeping the old lists", OW_MAP.len()));
+    }
     let protect = cidr::parse_all(&current.protect)?;
     let mut p = current.clone();
     let mut dropped = 0;
+    let mut updated = Vec::new();
     for (key, id) in OW_MAP {
         let Some(list) = v["regions"][key]["cidrs"].as_array() else { continue };
+        if list.is_empty() {
+            return Err(format!("Qiiks list for {key} is empty, keeping the old lists"));
+        }
         let mut keep = Vec::new();
         for s in list.iter().filter_map(|x| x.as_str()) {
             let c = Cidr::parse(s)?; // a malformed entry fails the whole refresh
@@ -144,10 +171,15 @@ fn merge_qiiks(current: &Profile, body: &str) -> Result<(Profile, usize), String
         if let Some(r) = p.regions.iter_mut().find(|r| r.id == *id) {
             if !keep.is_empty() {
                 r.cidrs = keep;
+                updated.push(*id);
             }
         }
     }
     p.resolve_overlaps()?;
+    // overlap resolution can still empty a region (all its ranges claimed by another region)
+    if let Some(r) = p.regions.iter().find(|r| updated.contains(&r.id.as_str()) && r.cidrs.is_empty()) {
+        return Err(format!("new Overwatch list for {} is empty, keeping the old lists", r.name));
+    }
     p.check()?;
     Ok((p, dropped))
 }
@@ -156,15 +188,49 @@ fn merge_qiiks(current: &Profile, body: &str) -> Result<(Profile, usize), String
 mod tests {
     use super::*;
 
+    /// Qiiks-shaped body: every mapped region gets its own 198.18.i.0/24, `eu` and `skip` override that.
+    fn qiiks(eu: &str, skip: &[&str]) -> String {
+        let mut regions: Vec<String> = OW_MAP
+            .iter()
+            .enumerate()
+            .filter(|(_, (k, _))| !skip.contains(k))
+            .map(|(i, (k, _))| {
+                let list = if *k == "OW2-EU" { eu.to_string() } else { format!(r#"["198.18.{i}.0/24"]"#) };
+                format!(r#""{k}":{{"cidrs":{list}}}"#)
+            })
+            .collect();
+        regions.push(r#""OW2-MiddleEast":{"cidrs":["1.2.3.0/24"]}"#.into());
+        format!(r#"{{"regions":{{{}}}}}"#, regions.join(","))
+    }
+
     #[test]
     fn qiiks_merge_strips_protected_and_keeps_me() {
         let mut cur = Profile::load(profile::OVERWATCH).unwrap();
         cur.protect = vec!["100.70.0.0/16".into()];
-        let body = r#"{"regions":{"OW2-EU":{"cidrs":["100.70.0.0/16","104.155.0.0/17"]},"OW2-MiddleEast":{"cidrs":["1.2.3.0/24"]}}}"#;
-        let (p, dropped) = merge_qiiks(&cur, body).unwrap();
+        let (p, dropped) = merge_qiiks(&cur, &qiiks(r#"["100.70.0.0/16","104.155.0.0/17"]"#, &[])).unwrap();
         assert_eq!(dropped, 1);
         assert_eq!(p.region("eu").unwrap().cidrs, vec!["104.155.0.0/17"]);
+        assert_eq!(p.region("japan").unwrap().cidrs, vec!["198.18.6.0/24"]);
         assert_eq!(p.region("me").unwrap().cidrs.len(), 57);
+    }
+
+    #[test]
+    fn qiiks_merge_rejects_implausible_data() {
+        let cur = Profile::load(profile::OVERWATCH).unwrap();
+        let eu = r#"["104.155.0.0/17"]"#;
+        // two regions missing is tolerated, the old list stays
+        let (p, _) = merge_qiiks(&cur, &qiiks(eu, &["OW2-Korea", "OW2-Taiwan"])).unwrap();
+        assert_eq!(p.region("korea").unwrap().cidrs, cur.region("korea").unwrap().cidrs);
+        assert!(merge_qiiks(&cur, &qiiks(eu, &["OW2-Korea", "OW2-Taiwan", "OW2-Japan"])).unwrap_err().contains("only 7"));
+        assert!(merge_qiiks(&cur, &qiiks("[]", &[])).unwrap_err().contains("OW2-EU"));
+        assert!(merge_qiiks(&cur, "{}").is_err());
+    }
+
+    #[test]
+    fn protect_parser_reports_bad_lines() {
+        let src = "# mine\n100.70.0.0/16\n\n abc # typo\n1.2.3.4\n1.2.3.0/33\n";
+        assert_eq!(problems(src), vec!["line 4: 'abc' is not a CIDR", "line 6: '1.2.3.0/33' is not a CIDR"]);
+        assert!(problems("").is_empty());
     }
 
     #[test]
