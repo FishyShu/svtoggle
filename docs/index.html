@@ -38,13 +38,13 @@
   "@type": "FAQPage",
   "mainEntity": [
     {"@type": "Question", "name": "How do I change my server region in Deadlock?",
-     "acceptedAnswer": {"@type": "Answer", "text": "The old console command citadel_region_override no longer exists in current Deadlock builds. svtoggle instead blocks the Valve relay cities you don't want in Windows Firewall, so matchmaking can only use the ones you leave on."}},
+     "acceptedAnswer": {"@type": "Answer", "text": "The old console command citadel_region_override no longer exists in current Deadlock builds. svtoggle instead blocks the Valve relay cities you don't want in Windows Firewall, so the game can't connect to the ones you block. This is experimental: whether the game picks another region or fails to connect is up to the game."}},
     {"@type": "Question", "name": "How do I block Overwatch servers in a region, like the Middle East?",
      "acceptedAnswer": {"@type": "Answer", "text": "Open svtoggle, pick the Overwatch tab and switch off the region. It adds a Windows Firewall rule that only applies to Overwatch.exe."}},
     {"@type": "Question", "name": "Does it modify the game or inject anything?",
      "acceptedAnswer": {"@type": "Answer", "text": "No. It only creates outbound Windows Firewall rules scoped to the game's exe. It never touches game files or the game process."}},
     {"@type": "Question", "name": "How do I undo everything?",
-     "acceptedAnswer": {"@type": "Answer", "text": "Click Allow everything in the app, or run Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule in an admin PowerShell."}}
+     "acceptedAnswer": {"@type": "Answer", "text": "Click Allow everything in the app to disable all rules, or run install.ps1 -Uninstall to remove every svtoggle firewall rule, the scheduled task, shortcuts and program folder. Your settings in %APPDATA%\\svtoggle are kept, and your own firewall rules outside the svtoggle group are untouched."}}
   ]
 }
 </script>
@@ -106,6 +106,7 @@
       <a class="btn" href="https://github.com/FishyShu/deadlock-overwatch-server-selector">Source on GitHub</a>
       <span class="note">Free · open source (MIT) · ~7 MB, no install needed</span>
     </div>
+    <p class="note"><b>Beta.</b> svtoggle blocks known server endpoints. Region choice and failover aren't guaranteed, and Deadlock blocking and match detection are experimental.</p>
     <div class="shot"><img src="social.png" width="1280" height="640" alt="svtoggle Deadlock tab: world map of Valve server cities with ping, and region switches"></div>
   </div>
 
@@ -113,19 +114,19 @@
     <h2>What it does</h2>
     <div class="grid">
       <div><h3>Deadlock, city by city</h3><p>Every Valve relay city (Frankfurt, Stockholm, Dubai, Sydney...) is its own switch, grouped by area. Real ping to each one.</p></div>
-      <div><h3>Overwatch regions</h3><p>NA, Europe, Middle East, Asia, Brazil, Australia and more. Block the Middle East or anything else in one click.</p></div>
+      <div><h3>Overwatch regions</h3><p>NA, Europe, Middle East, Asia, Brazil, Australia and more. Block the Middle East or anything else in one click. Works with Battle.net and Steam installs (or use Locate game). Pings are estimated (AWS proxy).</p></div>
       <div><h3>World map</h3><p>Click a dot to block or allow that server. Zoom and drag to see crowded areas like Europe.</p></div>
       <div><h3>Presets</h3><p>Save a setup like "EU only" and switch back in one click, also from the tray.</p></div>
-      <div><h3>Safe by design</h3><p>Only Windows Firewall rules, scoped to the game's exe. Nothing is injected; the game files are never touched.</p></div>
-      <div><h3>Shows your match</h3><p>While you play, it tells you which region your current match is on.</p></div>
+      <div><h3>Firewall rules only</h3><p>Only Windows Firewall rules, scoped to the game's exe. Nothing is injected; the game files are never touched.</p></div>
+      <div><h3>Detects your match (experimental)</h3><p>While you play, it tries to tell you which region your current match is on.</p></div>
     </div>
   </section>
 
   <section>
     <h2>How to use it</h2>
     <ol>
-      <li><b>Download</b> <code>svtoggle-gui.exe</code> (or <code>svtoggle-portable.exe</code> for a USB stick) from the releases page.</li>
-      <li><b>Run it.</b> It asks for admin, because firewall rules need it.</li>
+      <li><b>Download</b> the release ZIP and unzip it. Run <code>powershell -File install.ps1</code> once for launches without a UAC prompt, or just run <code>svtoggle-gui.exe</code> (or <code>svtoggle-portable.exe</code> for a USB stick).</li>
+      <li><b>Run it.</b> Without the installer it asks for admin on every launch, because firewall rules need it.</li>
       <li><b>Switch off</b> the regions you don't want, then start a new match. Restart the game if it was already open.</li>
     </ol>
   </section>
@@ -133,7 +134,7 @@
   <section id="faq">
     <h2>FAQ</h2>
     <details open><summary>How do I change my server region in Deadlock?</summary>
-      <p>The old console command <code>citadel_region_override</code> is gone from current Deadlock builds, so typing it in the console does nothing. svtoggle blocks the Valve relay cities you don't want, so matchmaking can only use the ones you leave on.</p></details>
+      <p>The old console command <code>citadel_region_override</code> is gone from current Deadlock builds, so typing it in the console does nothing. svtoggle blocks the Valve relay cities you don't want, so the game can't connect to the ones you block. This is experimental: whether the game then picks another region or fails to connect is up to the game.</p></details>
     <details><summary>How do I block Overwatch Middle East (or any region) servers?</summary>
       <p>Open the Overwatch tab and switch the region off. The rule only applies to Overwatch.exe, so other apps keep working normally.</p></details>
     <details><summary>Can this get me banned?</summary>
@@ -141,14 +142,14 @@
     <details><summary>The game hangs on "connecting". What now?</summary>
       <p>You've probably blocked every region it wanted. Click <b>Allow everything</b>, then block fewer regions.</p></details>
     <details><summary>How do I undo everything?</summary>
-      <p>Click <b>Allow everything</b>, or in an admin PowerShell run <code>Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule</code>.</p></details>
+      <p>Click <b>Allow everything</b> to disable all rules, or run <code>install.ps1 -Uninstall</code> to remove every svtoggle firewall rule, the scheduled task, shortcuts and program folder. Your settings in <code>%APPDATA%\svtoggle</code> are kept (delete that folder yourself if you want), and your own firewall rules outside the <code>svtoggle</code> group are untouched.</p></details>
     <details><summary>Does it work on Linux or Mac?</summary>
       <p>No, Windows 10/11 only, since it uses Windows Firewall.</p></details>
   </section>
 </main>
 
 <footer>
-  <div class="wrap">svtoggle is not affiliated with Valve or Blizzard. Deadlock and Overwatch are trademarks of their owners. Map data: Natural Earth.</div>
+  <div class="wrap">svtoggle is not affiliated with Valve or Blizzard. Deadlock and Overwatch are trademarks of their owners. Map data: Natural Earth. <a href="https://github.com/FishyShu/deadlock-overwatch-server-selector/blob/main/THIRD-PARTY-NOTICES.md">Third-party notices</a>.</div>
 </footer>
 </body>
 </html>

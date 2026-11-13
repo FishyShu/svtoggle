@@ -13,21 +13,23 @@
   <a href="#faq">FAQ</a>
 </p>
 
+> **Beta.** svtoggle blocks *known* server endpoints. It can't guarantee which region you land in or how the game fails over, and Deadlock blocking and match detection are experimental.
+
 ![svtoggle Deadlock tab: world map of Valve server cities with ping and region switches](docs/screenshot-deadlock.png)
 
 Looking for a **Deadlock region changer** (the old `citadel_region_override` console command no longer exists),
 an **Overwatch server selector**, or a way to **block Middle East / Asia / NA servers**? That's what this is.
 
 ## Install
-1. Download `svtoggle-gui.exe` from the latest release (or build it, see below).
-2. Double-click it. It asks for admin once per launch, because firewall rules need it.
+**Recommended:** download `svtoggle-<version>-windows.zip` from the latest release, unzip it, and run
+`powershell -File install.ps1` (it asks for UAC once). It copies the app to `%ProgramFiles%\svtoggle` (admin-only folder, since the task runs it elevated),
+registers a `svtoggle` scheduled task and makes Desktop and Start Menu shortcuts that launch through it, so later launches show no UAC prompt.
 
-**Portable:** grab `svtoggle-portable.exe` instead (or rename any copy to contain "portable"). It's the same
-single file, but it keeps presets and cached lists in a `svtoggle-data` folder beside itself, so it can live on a USB stick.
+**Quick try:** double-click `svtoggle-gui.exe` from the ZIP (or build it, see below). It asks for admin on every launch, because firewall rules need it.
 
-For launches without the UAC prompt, run `powershell -File scripts\install.ps1` once. It copies the
-app to `%ProgramFiles%\svtoggle` (admin-only folder, since the task runs it elevated), registers a `svtoggle` scheduled task and makes Desktop
-and Start Menu shortcuts that launch through it. Pin the Start Menu entry to the taskbar if you like.
+**Portable:** use `svtoggle-portable.exe` instead (or rename any copy to contain "portable"). Same file, but it keeps presets and cached lists in a `svtoggle-data` folder beside itself, so it can live on a USB stick.
+
+Overwatch is detected from Battle.net or Steam installs; if the game isn't found, use the **Locate game** button to point svtoggle at the game exe.
 
 ## Using it
 - **Switch on** = that region is reachable. **Switch off** = blocked. Click a dot on the map to do the same.
@@ -36,7 +38,7 @@ and Start Menu shortcuts that launch through it. Pin the Start Menu entry to the
 - **Presets**: block what you want, *Save current*, name it. One click (or the tray menu) brings it back. Right-click a preset to delete it.
 - **Allow everything** turns off every svtoggle rule for both games.
 - **Refresh lists** downloads the newest server lists and re-applies whatever you have blocked.
-- While a game is running, the right panel shows which region your match is on.
+- While a game is running, the right panel tries to detect which region your match is on (experimental).
 - Closing the window keeps it in the tray. Right-click the tray icon to quit.
 
 ## How it works
@@ -45,7 +47,7 @@ and Start Menu shortcuts that launch through it. Pin the Start Menu entry to the
 - **Protected ranges**: list ranges you never want blocked (e.g. your nearest home region) in `%APPDATA%\svtoggle\protect.txt`, one CIDR per line. They're stripped from every region on load and any block touching them is refused.
 - Overwatch ranges: a hand-verified Middle East list + [Qiiks/ow2-server-list](https://github.com/Qiiks/ow2-server-list) for the rest (community data, protected ranges stripped).
 - Deadlock ranges: exact Valve relay IPs per city from `ISteamApps/GetSDRConfig` (appid 1422450). Cities that publish no relays (`dsto`, `eat`, `fsn`, `hel`) can't be blocked. Valve's coordinates for the Datapacket cities are wrong, so they borrow their twin city's.
-- Ping: Overwatch = nearest AWS region (a proxy). Deadlock = ICMP to a real relay.
+- Ping: Overwatch = estimated (AWS proxy: the nearest AWS region, not the game server). Deadlock = ICMP to a real relay.
 - Match detection: counts UDP packets on the game's own ports with a raw socket (admin only).
 
 ## CLI
@@ -57,14 +59,17 @@ svtoggle monitor          # what match detection sees, once a second
 ```
 
 ## Undo everything
-- App: `powershell -File scripts\install.ps1 -Uninstall` (task, shortcuts, folder).
-- Rules, admin PowerShell: `Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule`
+- Click **Allow everything** in the app to disable all rules without uninstalling.
+- Full uninstall: `powershell -File install.ps1 -Uninstall` (or `scripts\install.ps1`). It stops a running svtoggle, removes **all** firewall rules in group `svtoggle`, the scheduled task, both shortcuts and the `%ProgramFiles%\svtoggle` folder, then verifies each removal and exits non-zero if anything is left.
+- **Kept:** your settings, presets and cached lists in `%APPDATA%\svtoggle` (delete with `Remove-Item -Recurse "$env:APPDATA\svtoggle"`; portable mode uses `svtoggle-data` beside the exe).
+- **Untouched:** your own firewall rules outside the `svtoggle` group (e.g. old hand-made `OW2 Block ...` rules).
+- Rules only, admin PowerShell: `Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule`
 
 ## Build
 `cargo build --release` → `target/release/svtoggle-gui.exe` (icon + admin manifest embedded, needs the Windows SDK) and `svtoggle.exe`. `cargo test` runs the guard tests.
 
 ## FAQ
-**How do I change my server region in Deadlock?** `citadel_region_override` is gone from current builds. svtoggle blocks the Valve relay cities you don't want, so matchmaking can only use the rest.
+**How do I change my server region in Deadlock?** `citadel_region_override` is gone from current builds. svtoggle blocks the Valve relay cities you don't want, so the game can't connect to the ones you block (whether it then picks another region or fails is up to the game).
 
 **How do I block Overwatch Middle East servers?** Overwatch tab, switch off *Middle East*. The rule only applies to `Overwatch.exe`.
 
@@ -76,4 +81,4 @@ svtoggle monitor          # what match detection sees, once a second
 - Deadlock: whether the game fails over to another relay or refuses to connect when a city is blocked.
 - Match detection during a real match, and the 20 pkt/s threshold.
 
-License: MIT. Fonts: IBM Plex Sans / Mono, SIL Open Font License (`app/assets/fonts/OFL.txt`). Map: Natural Earth (public domain).
+License: MIT. Fonts, map data and IP-list sources: see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md). Not affiliated with Valve or Blizzard.
