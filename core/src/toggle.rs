@@ -58,13 +58,19 @@ fn plan(prev: Option<&Profile>, now: &Profile, enabled: impl Fn(&str) -> bool) -
 /// After a list refresh or protect.txt change: push the current guarded lists into every enabled rule,
 /// disable rules whose region has nothing blockable left or vanished. Returns errors (empty = fine).
 pub fn reconcile(fw: &Fw, prev: Option<&Profile>, now: &Profile) -> Vec<String> {
-    let enabled = |id: &str| fw.status(&rule_name(&now.game, id)).is_some_and(|(en, _)| en);
+    let on = |n: &str| fw.status(n).is_some_and(|(en, _)| en);
+    let legacy = |id: &str| now.region(id).or_else(|| prev.and_then(|p| p.region(id))).and_then(|r| r.legacy_rule.clone());
+    // a live legacy rule counts too: re-blocking migrates it to a guarded, exe-scoped rule (set() disables it)
+    let enabled = |id: &str| on(&rule_name(&now.game, id)) || legacy(id).is_some_and(|l| on(&l));
     plan(prev, now, enabled)
         .into_iter()
         .filter_map(|(id, step)| {
             let res = match step {
                 Step::Reblock => set(fw, now, &id, true).map(|_| ()),
-                Step::Disable => fw.allow(&rule_name(&now.game, &id)).map(|_| ()).map_err(deny),
+                Step::Disable => fw.allow(&rule_name(&now.game, &id)).map_err(deny).and_then(|_| match legacy(&id) {
+                    Some(l) => fw.allow(&l).map(|_| ()).map_err(deny),
+                    None => Ok(()),
+                }),
             };
             let name = now.region(&id).or_else(|| prev.and_then(|p| p.region(&id))).map_or(id.as_str(), |r| r.name.as_str());
             res.err().map(|e| format!("{name}: {e}"))

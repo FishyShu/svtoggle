@@ -52,6 +52,7 @@ struct App {
     tray: Option<Tray>,
     logo: egui::TextureHandle,
     pending: Option<Pending>, // a block waiting for "you're in a match, sure?"
+    deferred: Option<(usize, Option<Profile>)>, // rule re-apply held until the current match ends
     about: bool,
     tx: Sender<Msg>,
     rx: Receiver<Msg>,
@@ -97,8 +98,10 @@ impl App {
             .unwrap_or(0);
         let mut app = App { profs, exes, tab, toast: None, blocked: HashMap::new(), pings: HashMap::new(),
               last_status: None, last_ping: None, refreshing: false, pings_out: 0, presets, naming: None,
-              expanded: HashSet::new(), map: MapView::default(), monitor, tray, logo, pending: None, about: false, tx, rx };
-        app.startup_checks();
+              expanded: HashSet::new(), map: MapView::default(), monitor, tray, logo, pending: None, deferred: None, about: false, tx, rx };
+        if std::env::var_os("SVTOGGLE_SHOT").is_none() {
+            app.startup_checks(); // screenshot runs are unelevated; their access-denied toast isn't the product
+        }
         app
     }
 
@@ -146,6 +149,8 @@ impl App {
             Ok(()) => {
                 self.exes[self.tab] = games::exe(&game).map(|e| e.display().to_string());
                 self.say(format!("Using {}", path.display()), false);
+                // existing blocks still point at the old exe: move them over
+                self.reapply(self.tab, None, format!("Using {}", path.display()));
             }
             Err(e) => self.say(e, true),
         }
@@ -251,21 +256,31 @@ impl App {
         match res {
             Ok((p, summary)) => {
                 let old = std::mem::replace(&mut self.profs[i], p);
-                // same reconcile as startup and the CLI: new lists into live rules, vanished regions off
-                let errs = match Fw::open() {
-                    Ok(fw) => toggle::reconcile(&fw, Some(&old), &self.profs[i]),
-                    Err(e) => vec![e.to_string()],
-                };
                 self.monitor.set_targets(targets(&self.profs));
-                self.refresh_status();
-                if errs.is_empty() {
-                    self.say(summary, false);
-                } else {
-                    self.say(format!("{summary}, but re-applying rules failed: {}", errs.join("; ")), true);
-                }
+                self.reapply(i, Some(old), summary);
                 self.last_ping = None;
             }
             Err(e) => self.say(format!("Refresh failed, kept the old list: {e}"), true),
+        }
+    }
+
+    /// Same reconcile as startup and the CLI (new lists into live rules, vanished regions off), but never
+    /// during a detected match: new endpoints could drop the game. Held in `deferred` until it ends.
+    fn reapply(&mut self, i: usize, old: Option<Profile>, summary: String) {
+        if self.monitor.current().is_some() {
+            self.deferred = Some((i, old));
+            self.say(format!("{summary}. Your blocks update after this match."), false);
+            return;
+        }
+        let errs = match Fw::open() {
+            Ok(fw) => toggle::reconcile(&fw, old.as_ref(), &self.profs[i]),
+            Err(e) => vec![e.to_string()],
+        };
+        self.refresh_status();
+        if errs.is_empty() {
+            self.say(summary, false);
+        } else {
+            self.say(format!("{summary}, but re-applying rules failed: {}", errs.join("; ")), true);
         }
     }
 
@@ -736,6 +751,10 @@ impl eframe::App for App {
                 }
                 Msg::Refreshed(i, res) => self.on_refreshed(i, res),
             }
+        }
+        if self.deferred.is_some() && self.monitor.current().is_none() {
+            let (i, old) = self.deferred.take().unwrap();
+            self.reapply(i, old, "Match over, blocks updated".into());
         }
         if self.last_status.is_none_or(|t| t.elapsed() >= STATUS_EVERY) {
             self.refresh_status();

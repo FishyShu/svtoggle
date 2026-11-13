@@ -160,8 +160,10 @@ fn merge_qiiks(current: &Profile, body: &str) -> Result<(Profile, usize), String
             return Err(format!("Qiiks list for {key} is empty, keeping the old lists"));
         }
         let mut keep = Vec::new();
-        for s in list.iter().filter_map(|x| x.as_str()) {
-            let c = Cidr::parse(s)?; // a malformed entry fails the whole refresh
+        for x in list {
+            // a non-string or malformed entry fails the whole refresh instead of being skipped
+            let s = x.as_str().ok_or_else(|| format!("Qiiks list for {key} has a non-text entry ({x}), keeping the old lists"))?;
+            let c = Cidr::parse(s)?;
             if protect.iter().any(|pr| c.overlaps(pr)) {
                 dropped += 1; // shortcut: drops a whole range that merely contains a protected one; fine while ranges are this granular
             } else {
@@ -201,6 +203,12 @@ mod tests {
             .collect();
         regions.push(r#""OW2-MiddleEast":{"cidrs":["1.2.3.0/24"]}"#.into());
         format!(r#"{{"regions":{{{}}}}}"#, regions.join(","))
+    }
+
+    #[test]
+    fn qiiks_merge_rejects_non_text_entries() {
+        let cur = Profile::load(profile::OVERWATCH).unwrap();
+        assert!(merge_qiiks(&cur, &qiiks(r#"[null]"#, &[])).unwrap_err().contains("non-text"));
     }
 
     #[test]

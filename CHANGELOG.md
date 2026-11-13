@@ -1,5 +1,17 @@
 # Changelog
 
+## 0.4.0 — 2026-11-13
+Fixes from a second Codex review (design + project):
+- **Honesty:** website/README say what's experimental (Deadlock blocking, match detection) and that blocking stops connections to listed endpoints rather than guaranteeing a region. Overwatch pings are shown as estimates (`~60 ms`, "FASTEST NOW (EST.)").
+- **Safety:** blocking while a match is detected asks first (leaver penalties). Tray says "Quit (blocks stay on)".
+- **protect.txt is enforced on existing rules:** on startup (and after every refresh, GUI or CLI) live rules are re-applied with the current guarded lists; malformed lines are reported, not ignored.
+- **Refresh rejects broken downloads** (too few Deadlock POPs, missing/empty Overwatch regions) and keeps the old list.
+- **Locate game / Change game path** button; Steam installs of Overwatch are detected.
+- **Match detection** keeps port ownership per game, so two running games can't be confused.
+- **Install/uninstall:** release ZIP with `install.ps1` that works next to the exes; uninstall stops the app, removes svtoggle firewall rules, verifies, and tells you what it kept. `scripts/package.ps1` refuses to ship a build without the admin manifest and writes SHA-256 sums.
+- **Notices:** THIRD-PARTY-NOTICES.md (IBM Plex OFL, Natural Earth, Valve data, Qiiks MIT / foryVERX provenance) shipped in the ZIP and shown in the new About box.
+- **Accessibility/design:** brighter small text (~5:1 contrast), switches are named + keyboard-focusable for screen readers, blocked map markers are an × (not just red), tighter default window, logo without the background ring.
+
 ## 0.3.1 — 2026-11-13
 - New mascot logo: a chubby amber fish swimming past the globe, drawn in code (`app/src/icon.rs`), used for the exe, window, tray, favicon and website. Simplified automatically at 16-20 px.
 
