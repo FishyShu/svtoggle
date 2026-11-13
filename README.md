@@ -1,10 +1,22 @@
-# svtoggle
+<p align="center"><img src="docs/logo-256.png" width="96" alt="svtoggle logo"></p>
 
-Pick which game server regions you can connect to, using Windows Firewall.
-Tabs for **Overwatch** and **Deadlock**. A small native Rust app (egui, ~7 MB).
-It doesn't touch game files or inject anything.
+<h1 align="center">Deadlock &amp; Overwatch Server Selector</h1>
 
-![Deadlock tab](docs/screenshot-deadlock.png)
+<p align="center">
+  <b>svtoggle</b> picks which game server regions you can be matched on, for <b>Deadlock</b> and <b>Overwatch</b> on Windows.<br>
+  World map, per-city toggles, ping per region, presets. Firewall rules only: no injection, game files untouched.
+</p>
+
+<p align="center">
+  <a href="https://github.com/FishyShu/deadlock-overwatch-server-selector/releases/latest"><b>Download</b></a> ·
+  <a href="https://fishyshu.github.io/deadlock-overwatch-server-selector/">Website</a> ·
+  <a href="#faq">FAQ</a>
+</p>
+
+![svtoggle Deadlock tab: world map of Valve server cities with ping and region switches](docs/screenshot-deadlock.png)
+
+Looking for a **Deadlock region changer** (the old `citadel_region_override` console command no longer exists),
+an **Overwatch server selector**, or a way to **block Middle East / Asia / NA servers**? That's what this is.
 
 ## Install
 1. Download `svtoggle-gui.exe` from the latest release (or build it, see below).
@@ -50,6 +62,15 @@ svtoggle monitor          # what match detection sees, once a second
 
 ## Build
 `cargo build --release` → `target/release/svtoggle-gui.exe` (icon + admin manifest embedded, needs the Windows SDK) and `svtoggle.exe`. `cargo test` runs the guard tests.
+
+## FAQ
+**How do I change my server region in Deadlock?** `citadel_region_override` is gone from current builds. svtoggle blocks the Valve relay cities you don't want, so matchmaking can only use the rest.
+
+**How do I block Overwatch Middle East servers?** Overwatch tab, switch off *Middle East*. The rule only applies to `Overwatch.exe`.
+
+**Can this get me banned?** It never touches the game; it only adds Windows Firewall rules, like a router geo-filter. Use at your own risk, and don't switch regions mid competitive match: dropping out can count as leaving.
+
+**Stuck on "connecting"?** You've probably blocked everything it wanted. Click *Allow everything*, then block fewer regions.
 
 ## Not verified yet
 - Deadlock: whether the game fails over to another relay or refuses to connect when a city is blocked.

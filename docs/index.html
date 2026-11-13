@@ -1,0 +1,154 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Deadlock &amp; Overwatch Server Selector for Windows (svtoggle)</title>
+<meta name="description" content="Free Windows server region selector and blocker for Deadlock and Overwatch. Choose which server regions or cities you can play on, see ping per region on a world map, save presets. Uses Windows Firewall only, no injection.">
+<link rel="canonical" href="https://fishyshu.github.io/deadlock-overwatch-server-selector/">
+<meta property="og:type" content="website">
+<meta property="og:title" content="Deadlock & Overwatch Server Selector (svtoggle)">
+<meta property="og:description" content="Pick which Deadlock and Overwatch server regions you play on. World map, per-city toggles, ping, presets. Free and open source.">
+<meta property="og:image" content="https://fishyshu.github.io/deadlock-overwatch-server-selector/social.png">
+<meta property="og:url" content="https://fishyshu.github.io/deadlock-overwatch-server-selector/">
+<meta name="twitter:card" content="summary_large_image">
+<link rel="icon" type="image/png" sizes="32x32" href="favicon-32.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono&family=IBM+Plex+Sans:wght@400;600&display=swap" rel="stylesheet">
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "svtoggle - Deadlock & Overwatch Server Selector",
+  "operatingSystem": "Windows 10, Windows 11",
+  "applicationCategory": "GameApplication",
+  "description": "Server region selector and blocker for Deadlock and Overwatch using Windows Firewall rules scoped to the game.",
+  "offers": { "@type": "Offer", "price": "0", "priceCurrency": "USD" },
+  "license": "https://opensource.org/licenses/MIT",
+  "downloadUrl": "https://github.com/FishyShu/deadlock-overwatch-server-selector/releases/latest",
+  "screenshot": "https://fishyshu.github.io/deadlock-overwatch-server-selector/social.png",
+  "image": "https://fishyshu.github.io/deadlock-overwatch-server-selector/logo.png"
+}
+</script>
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "FAQPage",
+  "mainEntity": [
+    {"@type": "Question", "name": "How do I change my server region in Deadlock?",
+     "acceptedAnswer": {"@type": "Answer", "text": "The old console command citadel_region_override no longer exists in current Deadlock builds. svtoggle instead blocks the Valve relay cities you don't want in Windows Firewall, so matchmaking can only use the ones you leave on."}},
+    {"@type": "Question", "name": "How do I block Overwatch servers in a region, like the Middle East?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Open svtoggle, pick the Overwatch tab and switch off the region. It adds a Windows Firewall rule that only applies to Overwatch.exe."}},
+    {"@type": "Question", "name": "Does it modify the game or inject anything?",
+     "acceptedAnswer": {"@type": "Answer", "text": "No. It only creates outbound Windows Firewall rules scoped to the game's exe. It never touches game files or the game process."}},
+    {"@type": "Question", "name": "How do I undo everything?",
+     "acceptedAnswer": {"@type": "Answer", "text": "Click Allow everything in the app, or run Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule in an admin PowerShell."}}
+  ]
+}
+</script>
+<style>
+  :root {
+    --bg: #0e1114; --panel: #14181d; --raised: #1b2027; --stroke: #262d36;
+    --text: #d9dee4; --dim: #8b95a1; --faint: #5c6672; --accent: #e8a33d; --ok: #6cbf84;
+  }
+  * { box-sizing: border-box; }
+  html { -webkit-text-size-adjust: 100%; }
+  body { margin: 0; background: var(--bg); color: var(--text); font: 16px/1.6 "IBM Plex Sans", system-ui, sans-serif; }
+  a { color: var(--text); text-decoration-color: var(--faint); text-underline-offset: 3px; }
+  a:hover { text-decoration-color: var(--text); }
+  code { font: 14px "IBM Plex Mono", ui-monospace, monospace; background: var(--raised); border: 1px solid var(--stroke); border-radius: 4px; padding: 1px 6px; }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 0 16px; }
+  header { border-bottom: 1px solid var(--stroke); background: var(--panel); }
+  header .wrap { display: flex; align-items: center; gap: 12px; height: 56px; }
+  header b { font-weight: 600; }
+  header span { color: var(--faint); font-size: 14px; }
+  header nav { margin-left: auto; display: flex; gap: 20px; font-size: 14px; }
+  header nav a { color: var(--dim); text-decoration: none; }
+  header nav a:hover { color: var(--text); }
+  .hero { padding: 56px 0 28px; }
+  h1 { font-weight: 600; font-size: clamp(28px, 5vw, 42px); line-height: 1.15; margin: 0 0 14px; letter-spacing: -0.01em; }
+  .lede { color: var(--dim); font-size: 18px; max-width: 640px; margin: 0 0 26px; }
+  .cta { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .btn { display: inline-block; padding: 10px 18px; border-radius: 6px; text-decoration: none; font-weight: 600; border: 1px solid var(--stroke); background: var(--raised); }
+  .btn.primary { background: var(--accent); color: #17120a; border-color: var(--accent); }
+  .btn.primary:hover { filter: brightness(1.06); }
+  .note { color: var(--faint); font-size: 14px; }
+  .shot { margin: 34px 0 8px; border: 1px solid var(--stroke); border-radius: 8px; overflow: hidden; }
+  .shot img { display: block; width: 100%; height: auto; }
+  section { padding: 34px 0; border-top: 1px solid var(--stroke); }
+  h2 { font-weight: 600; font-size: 22px; margin: 0 0 16px; }
+  .grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px 28px; }
+  .grid h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
+  .grid p { margin: 0; color: var(--dim); font-size: 15px; }
+  ol { padding-left: 20px; color: var(--dim); } ol li { margin: 6px 0; } ol b { color: var(--text); font-weight: 600; }
+  details { border: 1px solid var(--stroke); border-radius: 6px; background: var(--panel); padding: 12px 16px; margin: 10px 0; }
+  summary { cursor: pointer; font-weight: 600; }
+  details p { color: var(--dim); margin: 10px 0 2px; }
+  footer { border-top: 1px solid var(--stroke); padding: 22px 0 40px; color: var(--faint); font-size: 14px; }
+</style>
+</head>
+<body>
+<header>
+  <div class="wrap">
+    <img src="logo-256.png" width="26" height="26" alt=""><b>svtoggle</b><span>server selector</span>
+    <nav><a href="#features">Features</a><a href="#faq">FAQ</a><a href="https://github.com/FishyShu/deadlock-overwatch-server-selector">GitHub</a></nav>
+  </div>
+</header>
+
+<main class="wrap">
+  <div class="hero">
+    <h1>Deadlock &amp; Overwatch server selector for Windows</h1>
+    <p class="lede">Choose which server regions you can be matched on. Block the far-away ones, keep the close ones, and see the ping to each on a world map.</p>
+    <div class="cta">
+      <a class="btn primary" href="https://github.com/FishyShu/deadlock-overwatch-server-selector/releases/latest">Download for Windows</a>
+      <a class="btn" href="https://github.com/FishyShu/deadlock-overwatch-server-selector">Source on GitHub</a>
+      <span class="note">Free · open source (MIT) · ~7 MB, no install needed</span>
+    </div>
+    <div class="shot"><img src="social.png" width="1280" height="640" alt="svtoggle Deadlock tab: world map of Valve server cities with ping, and region switches"></div>
+  </div>
+
+  <section id="features">
+    <h2>What it does</h2>
+    <div class="grid">
+      <div><h3>Deadlock, city by city</h3><p>Every Valve relay city (Frankfurt, Stockholm, Dubai, Sydney...) is its own switch, grouped by area. Real ping to each one.</p></div>
+      <div><h3>Overwatch regions</h3><p>NA, Europe, Middle East, Asia, Brazil, Australia and more. Block the Middle East or anything else in one click.</p></div>
+      <div><h3>World map</h3><p>Click a dot to block or allow that server. Zoom and drag to see crowded areas like Europe.</p></div>
+      <div><h3>Presets</h3><p>Save a setup like "EU only" and switch back in one click, also from the tray.</p></div>
+      <div><h3>Safe by design</h3><p>Only Windows Firewall rules, scoped to the game's exe. Nothing is injected; the game files are never touched.</p></div>
+      <div><h3>Shows your match</h3><p>While you play, it tells you which region your current match is on.</p></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>How to use it</h2>
+    <ol>
+      <li><b>Download</b> <code>svtoggle-gui.exe</code> (or <code>svtoggle-portable.exe</code> for a USB stick) from the releases page.</li>
+      <li><b>Run it.</b> It asks for admin, because firewall rules need it.</li>
+      <li><b>Switch off</b> the regions you don't want, then start a new match. Restart the game if it was already open.</li>
+    </ol>
+  </section>
+
+  <section id="faq">
+    <h2>FAQ</h2>
+    <details open><summary>How do I change my server region in Deadlock?</summary>
+      <p>The old console command <code>citadel_region_override</code> is gone from current Deadlock builds, so typing it in the console does nothing. svtoggle blocks the Valve relay cities you don't want, so matchmaking can only use the ones you leave on.</p></details>
+    <details><summary>How do I block Overwatch Middle East (or any region) servers?</summary>
+      <p>Open the Overwatch tab and switch the region off. The rule only applies to Overwatch.exe, so other apps keep working normally.</p></details>
+    <details><summary>Can this get me banned?</summary>
+      <p>It doesn't modify the game or read its memory; it only adds Windows Firewall rules, the same thing a router geo-filter does. Still, use it at your own risk, and don't change regions in the middle of a competitive match: dropping out can count as leaving.</p></details>
+    <details><summary>The game hangs on "connecting". What now?</summary>
+      <p>You've probably blocked every region it wanted. Click <b>Allow everything</b>, then block fewer regions.</p></details>
+    <details><summary>How do I undo everything?</summary>
+      <p>Click <b>Allow everything</b>, or in an admin PowerShell run <code>Get-NetFirewallRule -Group svtoggle | Remove-NetFirewallRule</code>.</p></details>
+    <details><summary>Does it work on Linux or Mac?</summary>
+      <p>No, Windows 10/11 only, since it uses Windows Firewall.</p></details>
+  </section>
+</main>
+
+<footer>
+  <div class="wrap">svtoggle is not affiliated with Valve or Blizzard. Deadlock and Overwatch are trademarks of their owners. Map data: Natural Earth.</div>
+</footer>
+</body>
+</html>
