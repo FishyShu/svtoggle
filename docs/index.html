@@ -39,6 +39,30 @@
  "mainEntity": [
   {
    "@type": "Question",
+   "name": "Does svtoggle need to stay open for the blocks to work?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Nope. Blocks are Windows Firewall rules, so they stay on after you close svtoggle, quit it from the tray, or reboot. They only go away when you switch them back on, hit Allow everything, or uninstall. The app only needs to be open to change things, see pings or spot your match."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Will it block those servers in my other games?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "No. Every rule is tied to one exe, Overwatch.exe or deadlock.exe. Other games, Discord and your browser can still reach the exact same servers."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Can I change regions mid-game, or only after closing the game?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "You can, but it bites. Rules apply instantly, and Windows re-checks connections that are already open when a rule changes, so blocking the server you're playing on will most likely drop you. That's why svtoggle asks first when it sees you're in a match. Unblocking mid-game is harmless. Safest: change things in the menu, between matches. If Overwatch keeps landing you in the old region, restart the game."
+   }
+  },
+  {
+   "@type": "Question",
    "name": "How do I change my server region in Deadlock?",
    "acceptedAnswer": {
     "@type": "Answer",
@@ -55,10 +79,50 @@
   },
   {
    "@type": "Question",
+   "name": "Will this lower my ping?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Not by itself. It can't move a server closer, it only stops the far ones from being used. If the game would have put you somewhere far away, that can mean a closer match. Overwatch numbers in the app are estimates (nearest AWS region), Deadlock ones are real pings to Valve's relays."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "How do I know the blocks are actually working?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Switch off and a red × on the map means the firewall rule is active. You can see the rules yourself in Windows Defender Firewall → Advanced settings → Outbound Rules, group svtoggle. During a match, the \"In a match\" card tries to show where you landed (experimental)."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Why does it need admin? Is it a virus?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Windows only lets admin programs change firewall rules; every firewall tool needs it. svtoggle uses it for that and, for match detection, to count which server the game's packets go to, locally. It's not a virus: the source is public (MIT), it injects nothing, reads no game memory and has no telemetry. The exe isn't code-signed (that costs money), so SmartScreen may say \"Windows protected your PC\": click More info → Run anyway, or check the SHA-256 from the release page first."
+   }
+  },
+  {
+   "@type": "Question",
    "name": "Can this get me banned?",
    "acceptedAnswer": {
     "@type": "Answer",
     "text": "It doesn't touch the game or read its memory. It only adds Windows Firewall rules, same idea as a router geo-filter. Still, use it at your own risk, and don't flip regions in the middle of a competitive match: a dropped game can count as leaving. svtoggle asks first if it sees you're in one."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Does svtoggle collect data or phone home?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "No accounts, no telemetry. It goes online for pings, and, when you press Refresh lists, to download lists from Valve's Steam API and GitHub. Your settings and presets stay on your PC in %APPDATA%\\svtoggle."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Does it work with a VPN, my router, or another firewall?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "The rules live in Windows Firewall and follow the game's exe, so most setups should be fine. A VPN that exits in another country changes which servers count as close, and third-party firewalls or antivirus suites can override Windows Firewall. Not tested across VPNs yet: tell us how yours behaves."
    }
   },
   {
@@ -71,6 +135,54 @@
   },
   {
    "@type": "Question",
+   "name": "It stopped working after a game patch.",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Press Refresh lists on that game's tab to pull the newest server lists. If the patch moved the game, use Change game path; your existing blocks follow it to the new exe."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Could my queues get longer, or break duo with a friend in another region?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Possibly. Fewer allowed regions means fewer servers the game can use. In a party the game picks one server for everyone, and your blocks only stop your PC from reaching it, so if it picks one you blocked you may fail to join. Untested, so if you try it, tell us."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "What if Deadlock and Overwatch are both open?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Each game has its own rules, so blocks never mix. Match detection shows the busiest connection of the two."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Will a Windows update wipe my blocks?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Windows updates normally keep firewall rules, but svtoggle doesn't recreate rules that something else deleted. If your blocks vanish, flip them again or click your preset."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "How do I update without losing my presets?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Unzip the new release and run its install.ps1 again. Presets live in %APPDATA%\\svtoggle, so they survive. Portable mode: keep the svtoggle-data folder next to the new exe."
+   }
+  },
+  {
+   "@type": "Question",
+   "name": "Someone else uses this PC. Do they get my blocks?",
+   "acceptedAnswer": {
+    "@type": "Answer",
+    "text": "Yes: firewall rules apply to the whole PC, for anyone launching that game. Presets and settings are per Windows user."
+   }
+  },
+  {
+   "@type": "Question",
    "name": "How do I undo everything?",
    "acceptedAnswer": {
     "@type": "Answer",
@@ -79,7 +191,7 @@
   },
   {
    "@type": "Question",
-   "name": "Does it work on Linux or Mac?",
+   "name": "Does it work on Linux, Mac or Steam Deck?",
    "acceptedAnswer": {
     "@type": "Answer",
     "text": "Windows 10/11 only. It's built on Windows Firewall, so the penguin and the apple are out of luck. Sorry."
@@ -123,6 +235,7 @@
   .grid h3 { font-size: 16px; font-weight: 600; margin: 0 0 4px; }
   .grid p { margin: 0; color: var(--dim); font-size: 15px; }
   ol { padding-left: 20px; color: var(--dim); } ol li { margin: 6px 0; } ol b { color: var(--text); font-weight: 600; }
+  .faqgroup { font-size: 13px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--dim); margin: 26px 0 8px; }
   details { border: 1px solid var(--stroke); border-radius: 6px; background: var(--panel); padding: 12px 16px; margin: 10px 0; }
   summary { cursor: pointer; font-weight: 600; }
   details p { color: var(--dim); margin: 10px 0 2px; }
@@ -175,17 +288,48 @@
 
   <section id="faq">
     <h2>FAQ</h2>
-    <details open><summary>How do I change my server region in Deadlock?</summary>
+    <h3 class="faqgroup">The basics</h3>
+    <details open><summary>Does svtoggle need to stay open for the blocks to work?</summary>
+      <p>Nope. Blocks are Windows Firewall rules, so they stay on after you close svtoggle, quit it from the tray, or reboot. They only go away when you switch them back on, hit <b>Allow everything</b>, or uninstall. The app only needs to be open to change things, see pings or spot your match.</p></details>
+    <details><summary>Will it block those servers in my other games?</summary>
+      <p>No. Every rule is tied to one exe, <code>Overwatch.exe</code> or <code>deadlock.exe</code>. Other games, Discord and your browser can still reach the exact same servers.</p></details>
+    <details><summary>Can I change regions mid-game, or only after closing the game?</summary>
+      <p>You can, but it bites. Rules apply instantly, and Windows re-checks connections that are already open when a rule changes, so blocking the server you're playing on will most likely drop you. That's why svtoggle asks first when it sees you're in a match. Unblocking mid-game is harmless. Safest: change things in the menu, between matches. If Overwatch keeps landing you in the old region, restart the game.</p></details>
+    <details><summary>How do I change my server region in Deadlock?</summary>
       <p>Valve removed <code>citadel_region_override</code>, so the console just says unknown command now. svtoggle blocks the relay cities you don't want, so the game can't connect to them. What the game does next (another region, or a long sad loading screen) is up to the game, which is why this part is still experimental.</p></details>
     <details><summary>How do I block Overwatch Middle East (or any region) servers?</summary>
       <p>Overwatch tab, flip Middle East off, done. The rule only applies to Overwatch.exe, so Discord and your browser don't even notice.</p></details>
+    <details><summary>Will this lower my ping?</summary>
+      <p>Not by itself. It can't move a server closer, it only stops the far ones from being used. If the game would have put you somewhere far away, that can mean a closer match. Overwatch numbers in the app are estimates (nearest AWS region), Deadlock ones are real pings to Valve's relays.</p></details>
+    <details><summary>How do I know the blocks are actually working?</summary>
+      <p>Switch off and a red × on the map means the firewall rule is active. You can see the rules yourself in Windows Defender Firewall → Advanced settings → Outbound Rules, group <code>svtoggle</code>. During a match, the "In a match" card tries to show where you landed (experimental).</p></details>
+    <h3 class="faqgroup">Safety &amp; trust</h3>
+    <details><summary>Why does it need admin? Is it a virus?</summary>
+      <p>Windows only lets admin programs change firewall rules; every firewall tool needs it. svtoggle uses it for that and, for match detection, to count which server the game's packets go to, locally. It's not a virus: the source is public (MIT), it injects nothing, reads no game memory and has no telemetry. The exe isn't code-signed (that costs money), so SmartScreen may say "Windows protected your PC": click More info → Run anyway, or check the SHA-256 from the release page first.</p></details>
     <details><summary>Can this get me banned?</summary>
       <p>It doesn't touch the game or read its memory. It only adds Windows Firewall rules, same idea as a router geo-filter. Still, use it at your own risk, and don't flip regions in the middle of a competitive match: a dropped game can count as leaving. svtoggle asks first if it sees you're in one.</p></details>
+    <details><summary>Does svtoggle collect data or phone home?</summary>
+      <p>No accounts, no telemetry. It goes online for pings, and, when you press Refresh lists, to download lists from Valve's Steam API and GitHub. Your settings and presets stay on your PC in <code>%APPDATA%\svtoggle</code>.</p></details>
+    <details><summary>Does it work with a VPN, my router, or another firewall?</summary>
+      <p>The rules live in Windows Firewall and follow the game's exe, so most setups should be fine. A VPN that exits in another country changes which servers count as close, and third-party firewalls or antivirus suites can override Windows Firewall. Not tested across VPNs yet: tell us how yours behaves.</p></details>
+    <h3 class="faqgroup">When things get weird</h3>
     <details><summary>The game hangs on &quot;connecting&quot;. What now?</summary>
       <p>You probably blocked everywhere it wanted to go. Hit <b>Allow everything</b>, then block a little less greedily.</p></details>
+    <details><summary>It stopped working after a game patch.</summary>
+      <p>Press <b>Refresh lists</b> on that game's tab to pull the newest server lists. If the patch moved the game, use <b>Change game path</b>; your existing blocks follow it to the new exe.</p></details>
+    <details><summary>Could my queues get longer, or break duo with a friend in another region?</summary>
+      <p>Possibly. Fewer allowed regions means fewer servers the game can use. In a party the game picks one server for everyone, and your blocks only stop your PC from reaching it, so if it picks one you blocked you may fail to join. Untested, so if you try it, tell us.</p></details>
+    <details><summary>What if Deadlock and Overwatch are both open?</summary>
+      <p>Each game has its own rules, so blocks never mix. Match detection shows the busiest connection of the two.</p></details>
+    <details><summary>Will a Windows update wipe my blocks?</summary>
+      <p>Windows updates normally keep firewall rules, but svtoggle doesn't recreate rules that something else deleted. If your blocks vanish, flip them again or click your preset.</p></details>
+    <details><summary>How do I update without losing my presets?</summary>
+      <p>Unzip the new release and run its <code>install.ps1</code> again. Presets live in <code>%APPDATA%\svtoggle</code>, so they survive. Portable mode: keep the <code>svtoggle-data</code> folder next to the new exe.</p></details>
+    <details><summary>Someone else uses this PC. Do they get my blocks?</summary>
+      <p>Yes: firewall rules apply to the whole PC, for anyone launching that game. Presets and settings are per Windows user.</p></details>
     <details><summary>How do I undo everything?</summary>
       <p><b>Allow everything</b> turns every rule off. <code>install.ps1 -Uninstall</code> removes all svtoggle firewall rules, the scheduled task, the shortcuts and the program folder, then checks it actually did. Your settings in <code>%APPDATA%\svtoggle</code> stay (delete the folder if you want them gone), and firewall rules you made yourself are never touched.</p></details>
-    <details><summary>Does it work on Linux or Mac?</summary>
+    <details><summary>Does it work on Linux, Mac or Steam Deck?</summary>
       <p>Windows 10/11 only. It's built on Windows Firewall, so the penguin and the apple are out of luck. Sorry.</p></details>
   </section>
 </main>

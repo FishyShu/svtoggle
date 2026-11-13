@@ -71,6 +71,16 @@ svtoggle monitor          # what match detection sees, once a second
 `cargo build --release` → `target/release/svtoggle-gui.exe` (icon + admin manifest embedded, needs the Windows SDK) and `svtoggle.exe`. `cargo test` runs the guard tests.
 
 ## FAQ
+The full FAQ (VPNs, patch day, duo queues, updating, and more) lives on the [website](https://fishyshu.github.io/deadlock-overwatch-server-selector/#faq). The big ones:
+
+**Does svtoggle need to stay open?** No. Blocks are Windows Firewall rules: they survive closing the app, quitting from the tray and rebooting. They only go away when you switch them back on, hit *Allow everything*, or uninstall.
+
+**Will it block those servers in my other games?** No. Every rule is tied to one exe (`Overwatch.exe` / `deadlock.exe`). Other games, Discord and your browser can still reach the same servers.
+
+**Can I change regions mid-game?** You can, but it bites: rules apply instantly and Windows re-checks open connections when a rule changes, so blocking the server you're on will most likely drop you. svtoggle asks first if it sees you're in a match. Unblocking mid-game is harmless. Safest is between matches.
+
+**Why admin? Is it a virus?** Windows only lets admin programs change firewall rules. The source is right here (MIT), it injects nothing, reads no game memory and has no telemetry. The exe isn't code-signed, so SmartScreen may warn you: *More info → Run anyway*, or check the release's SHA-256 first.
+
 **How do I change my server region in Deadlock?** `citadel_region_override` is gone from current builds. svtoggle blocks the Valve relay cities you don't want, so the game can't connect to the ones you block (whether it then picks another region or fails is up to the game).
 
 **How do I block Overwatch Middle East servers?** Overwatch tab, switch off *Middle East*. The rule only applies to `Overwatch.exe`.
