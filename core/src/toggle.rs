@@ -66,7 +66,8 @@ pub fn reconcile(fw: &Fw, prev: Option<&Profile>, now: &Profile) -> Vec<String> 
                 Step::Reblock => set(fw, now, &id, true).map(|_| ()),
                 Step::Disable => fw.allow(&rule_name(&now.game, &id)).map(|_| ()).map_err(deny),
             };
-            res.err().map(|e| format!("{id}: {e}"))
+            let name = now.region(&id).or_else(|| prev.and_then(|p| p.region(&id))).map_or(id.as_str(), |r| r.name.as_str());
+            res.err().map(|e| format!("{name}: {e}"))
         })
         .collect()
 }

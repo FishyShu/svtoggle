@@ -109,6 +109,9 @@ impl App {
             Ok(fw) => self.profs.iter().flat_map(|p| toggle::reconcile(&fw, None, p)).collect(),
             Err(e) => vec![e.to_string()],
         };
+        if !problems.is_empty() {
+            problems = vec![format!("Couldn't refresh your existing blocks ({})", problems.join("; "))];
+        }
         let bad = refresh::protect_problems();
         if !bad.is_empty() {
             problems.push(format!("protect.txt: {}", bad.join("; ")));
