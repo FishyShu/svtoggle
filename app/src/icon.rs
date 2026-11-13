@@ -1,5 +1,5 @@
-// The svtoggle mascot, drawn in code (no image files, no AI art): a chubby amber fish swimming over a quiet
-// globe on a graphite tile. Shared by build.rs (exe .ico), the window icon, the tray and the docs PNGs.
+// The svtoggle mascot, drawn in code (no image files, no AI art): a chubby amber fish blowing bubbles on a
+// graphite tile. Shared by build.rs (exe .ico), the window icon, the tray and the docs PNGs.
 // Pure std on purpose: build.rs `include!`s this file.
 
 /// RGBA pixels, `size` x `size`, anti-aliased by 4x4 supersampling.
@@ -32,7 +32,6 @@ pub fn rgba(size: u32) -> Vec<u8> {
 
 fn sample(u: f32, v: f32, s: f32) -> [f32; 4] {
     const TILE: [f32; 3] = [0.102, 0.122, 0.149]; // #1A1F26
-    const GLOBE: [f32; 3] = [0.20, 0.235, 0.275]; // quiet: the world is the backdrop, the fish is the star
     const LINE: [f32; 3] = [0.80, 0.83, 0.87];
     const AMBER: [f32; 3] = [0.91, 0.64, 0.24]; // #E8A33D, the app accent
     const FIN: [f32; 3] = [0.80, 0.50, 0.15];
@@ -88,11 +87,6 @@ fn sample(u: f32, v: f32, s: f32) -> [f32; 4] {
             if (d - br).abs() < (w * 0.45).max(0.012) {
                 return px(LINE);
             }
-        }
-        // the globe behind: just its outline, low contrast
-        let gd = ((u - 0.5).powi(2) + (v - 0.52).powi(2)).sqrt();
-        if (gd - 0.37).abs() < (w * 0.6).max(0.014) {
-            return px(GLOBE);
         }
     }
     px(TILE)
