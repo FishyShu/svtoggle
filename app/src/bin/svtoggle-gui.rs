@@ -663,7 +663,8 @@ impl eframe::App for App {
 }
 
 fn main() -> eframe::Result {
-    if !svtoggle::single::claim() {
+    // screenshot mode is a throwaway dev run: let it start beside a running copy
+    if std::env::var_os("SVTOGGLE_SHOT").is_none() && !svtoggle::single::claim() {
         return Ok(()); // already running: it was told to show its window
     }
     let icon = egui::IconData { rgba: svtoggle::icon::rgba(64), width: 64, height: 64 };

@@ -1,5 +1,8 @@
 # Changelog
 
+## 0.3.1 — 2026-11-13
+- New mascot logo: a chubby amber fish swimming past the globe, drawn in code (`app/src/icon.rs`), used for the exe, window, tray, favicon and website. Simplified automatically at 16-20 px.
+
 ## 0.3.0 — 2026-11-13
 - Protected ranges are now personal config: `%APPDATA%\svtoggle\protect.txt` (one CIDR per line). The repo ships none. Ranges listed there are stripped from every region on load and refresh, and the block-time guard still refuses anything touching them.
 - MIT license, public repo.

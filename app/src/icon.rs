@@ -1,5 +1,5 @@
-// The svtoggle mark, drawn in code (no image files): a graphite tile, a light globe outline,
-// and an amber "live" dot. Shared by build.rs (exe .ico), the window icon and the tray.
+// The svtoggle mascot, drawn in code (no image files, no AI art): a chubby amber fish swimming over a quiet
+// globe on a graphite tile. Shared by build.rs (exe .ico), the window icon, the tray and the docs PNGs.
 // Pure std on purpose: build.rs `include!`s this file.
 
 /// RGBA pixels, `size` x `size`, anti-aliased by 4x4 supersampling.
@@ -32,38 +32,70 @@ pub fn rgba(size: u32) -> Vec<u8> {
 
 fn sample(u: f32, v: f32, s: f32) -> [f32; 4] {
     const TILE: [f32; 3] = [0.102, 0.122, 0.149]; // #1A1F26
+    const GLOBE: [f32; 3] = [0.20, 0.235, 0.275]; // quiet: the world is the backdrop, the fish is the star
     const LINE: [f32; 3] = [0.80, 0.83, 0.87];
-    const AMBER: [f32; 3] = [0.91, 0.64, 0.24]; // #E8A33D
+    const AMBER: [f32; 3] = [0.91, 0.64, 0.24]; // #E8A33D, the app accent
+    const FIN: [f32; 3] = [0.80, 0.50, 0.15];
+    const BLUSH: [f32; 3] = [0.96, 0.52, 0.47];
+    const EYE: [f32; 3] = [0.09, 0.10, 0.12];
+    const WHITE: [f32; 3] = [1.0, 1.0, 1.0];
+    let px = |c: [f32; 3]| [c[0], c[1], c[2], 1.0];
+
     // rounded-square tile
     let r = 0.22;
     let (dx, dy) = ((u - 0.5).abs() - (0.5 - r), (v - 0.5).abs() - (0.5 - r));
-    let outside = (dx.max(0.0).powi(2) + dy.max(0.0).powi(2)).sqrt() - r;
-    if outside > 0.0 {
+    if (dx.max(0.0).powi(2) + dy.max(0.0).powi(2)).sqrt() - r > 0.0 {
         return [0.0; 4];
     }
-    // lines get thicker in px terms at small sizes so the mark survives 16x16
-    let w = (1.6 / s).max(0.045);
-    let (cx, cy) = (u - 0.47, v - 0.53);
-    let rad = 0.30;
-    let d = (cx * cx + cy * cy).sqrt();
-    let ring = (d - rad).abs() < w;
-    let inside = d < rad;
-    let detail = s >= 24.0; // equator + meridian turn to mush at 16-20 px
-    let equator = detail && inside && cy.abs() < w * 0.7;
-    // one meridian ellipse: x²/(0.42r)² + y²/r² = 1
-    let e = ((cx / (rad * 0.42)).powi(2) + (cy / rad).powi(2)).sqrt();
-    let meridian = detail && inside && (e - 1.0).abs() < w / (rad * 0.42) * 0.7;
-    // amber dot, upper right, with a tile-colored gap ring so it reads on top of the globe
-    let (ax, ay) = (u - 0.73, v - 0.27);
-    let ad = (ax * ax + ay * ay).sqrt();
-    if ad < 0.13 {
-        return [AMBER[0], AMBER[1], AMBER[2], 1.0];
+    let detail = s >= 24.0; // at 16-20 px only body, tail and eye survive
+    let w = (1.6 / s).max(0.03); // line width, thicker in px terms when small
+
+    // fish space: centred, tilted nose-up so it looks like it's happily swimming up-right
+    let (a_sin, a_cos) = (-0.22f32).sin_cos();
+    let (fx, fy) = (u - 0.535, v - 0.55);
+    let (x, y) = (fx * a_cos + fy * a_sin, -fx * a_sin + fy * a_cos);
+    let ell = |cx: f32, cy: f32, rx: f32, ry: f32| ((x - cx) / rx).powi(2) + ((y - cy) / ry).powi(2);
+    let circ = |cx: f32, cy: f32| ((x - cx).powi(2) + (y - cy).powi(2)).sqrt();
+
+    // front to back: first hit wins
+    if circ(0.115, -0.045) < 0.072 {
+        // eye, with a highlight dot: the whole cuteness budget lives here
+        return px(if circ(0.135, -0.072) < 0.026 { WHITE } else { EYE });
     }
-    if ad < 0.13 + w * 1.4 {
-        return [TILE[0], TILE[1], TILE[2], 1.0];
+    let body = ell(0.0, 0.0, 0.27, 0.215);
+    if body < 1.0 {
+        if detail && circ(0.235, 0.035) < 0.04 && circ(0.235, 0.035) > 0.04 - w * 0.9 && y > 0.035 {
+            return px(EYE); // tiny smile
+        }
+        if detail && ell(0.115, 0.075, 0.05, 0.028) < 1.0 {
+            return px(BLUSH);
+        }
+        return px(AMBER);
     }
-    let c = if ring || equator || meridian { LINE } else { TILE };
-    [c[0], c[1], c[2], 1.0]
+    // fan tail: a wedge that widens away from the body, with a round notch bitten out = the fork
+    let t = -0.2 - x; // 0 at the body, grows toward the tail tip
+    if (0.0..0.18).contains(&t) && y.abs() < 0.05 + t * 0.95 && circ(-0.405, 0.0) > 0.075 {
+        return px(FIN);
+    }
+    // little dorsal fin, leaning back
+    if y < -0.17 && ell(-0.06, -0.19, 0.075, 0.06) < 1.0 {
+        return px(FIN);
+    }
+    if detail {
+        // bubbles up by the mouth
+        for (bx, by, br) in [(0.80, 0.24, 0.05), (0.87, 0.12, 0.032)] {
+            let d = ((u - bx).powi(2) + (v - by).powi(2)).sqrt();
+            if (d - br).abs() < (w * 0.45).max(0.012) {
+                return px(LINE);
+            }
+        }
+        // the globe behind: just its outline, low contrast
+        let gd = ((u - 0.5).powi(2) + (v - 0.52).powi(2)).sqrt();
+        if (gd - 0.37).abs() < (w * 0.6).max(0.014) {
+            return px(GLOBE);
+        }
+    }
+    px(TILE)
 }
 
 /// Minimal .ico (32-bit BMP entries) for build.rs.
